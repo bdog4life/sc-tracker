@@ -15,50 +15,53 @@ const connections = new Map<WebSocket, AuthedSocket>();
 export function attachWebSocket(wss: WebSocketServer): void {
   wss.on('connection', (ws: WebSocket, _req: IncomingMessage) => {
     let authed: AuthedSocket | null = null;
+    let processing = Promise.resolve();
 
-    ws.on('message', async (raw) => {
-      let msg: WsClientMessage;
-      try {
-        msg = JSON.parse(raw.toString()) as WsClientMessage;
-      } catch {
-        ws.close(1008, 'Invalid JSON');
-        return;
-      }
-
-      if (msg.type === 'auth') {
-        const payload = verifyToken(msg.token);
-        if (!payload) {
-          const resp: WsServerMessage = { type: 'auth_error', message: 'Invalid token' };
-          ws.send(JSON.stringify(resp));
-          ws.close();
+    ws.on('message', (raw) => {
+      processing = processing.then(async () => {
+        let msg: WsClientMessage;
+        try {
+          msg = JSON.parse(raw.toString()) as WsClientMessage;
+        } catch {
+          ws.close(1008, 'Invalid JSON');
           return;
         }
-        const result = await pool.query(
-          'SELECT id FROM sc_tracker.users WHERE discord_id = $1',
-          [payload.discordId]
-        );
-        if (!result.rows[0]) {
-          const resp: WsServerMessage = { type: 'auth_error', message: 'User not found' };
-          ws.send(JSON.stringify(resp));
-          ws.close();
-          return;
-        }
-        authed = { ws, userId: result.rows[0].id, sessionId: null };
-        connections.set(ws, authed);
-        const ok: WsServerMessage = { type: 'auth_ok', userId: authed.userId };
-        ws.send(JSON.stringify(ok));
-        return;
-      }
 
-      if (msg.type === 'event') {
-        if (!authed) {
-          ws.close(1008, 'Not authenticated');
+        if (msg.type === 'auth') {
+          const payload = verifyToken(msg.token);
+          if (!payload) {
+            const resp: WsServerMessage = { type: 'auth_error', message: 'Invalid token' };
+            ws.send(JSON.stringify(resp));
+            ws.close();
+            return;
+          }
+          const result = await pool.query(
+            'SELECT id FROM sc_tracker.users WHERE discord_id = $1',
+            [payload.discordId]
+          );
+          if (!result.rows[0]) {
+            const resp: WsServerMessage = { type: 'auth_error', message: 'User not found' };
+            ws.send(JSON.stringify(resp));
+            ws.close();
+            return;
+          }
+          authed = { ws, userId: result.rows[0].id, sessionId: null };
+          connections.set(ws, authed);
+          const ok: WsServerMessage = { type: 'auth_ok', userId: authed.userId };
+          ws.send(JSON.stringify(ok));
           return;
         }
-        const eventId = await storeEvent(authed, msg.payload);
-        const ack: WsServerMessage = { type: 'ack', eventId };
-        ws.send(JSON.stringify(ack));
-      }
+
+        if (msg.type === 'event') {
+          if (!authed) {
+            ws.close(1008, 'Not authenticated');
+            return;
+          }
+          const eventId = await storeEvent(authed, msg.payload);
+          const ack: WsServerMessage = { type: 'ack', eventId };
+          ws.send(JSON.stringify(ack));
+        }
+      });
     });
 
     ws.on('close', () => {
