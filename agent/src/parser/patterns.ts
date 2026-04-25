@@ -189,4 +189,67 @@ export const patterns: Pattern[] = [
       };
     },
   },
+
+  // MISSION_START
+  {
+    type: 'MISSION_START',
+    match: (line) => line.includes('<CSubsumptionMissionComponent::CreateMissionInstance>'),
+    parse: (line, timestamp): ParsedEvent | null => {
+      const m = line.match(
+        /Creating subsumption mission module (\S+) with seed (\d+) and EntityId (\d+)/
+      );
+      if (!m) return null;
+      return {
+        type: 'MISSION_START',
+        occurredAt: timestamp,
+        parserVersion: PARSER_VERSION,
+        payload: { missionType: m[1], seed: m[2], entityId: m[3] },
+      };
+    },
+  },
+
+  // MISSION_END — fires when mission logic stops
+  {
+    type: 'MISSION_END',
+    match: (line) => line.includes('<CSubsumptionMissionComponent::StopMissionLogic>'),
+    parse: (line, timestamp): ParsedEvent | null => {
+      const m = line.match(/Stopping subsumption mission module with EntityId (\d+)/);
+      if (!m) return null;
+      return {
+        type: 'MISSION_END',
+        occurredAt: timestamp,
+        parserVersion: PARSER_VERSION,
+        payload: { entityId: m[1] },
+      };
+    },
+  },
+
+  // MISSION_CONTRACT — contract destinations generated
+  {
+    type: 'MISSION_CONTRACT',
+    match: (line) => line.includes('<GenerateLocationProperty>'),
+    parse: (line, timestamp): ParsedEvent | null => {
+      const headerMatch = line.match(
+        /variablename: ([^,]+), locations: (.+) contract: (\S+)/
+      );
+      if (!headerMatch) return null;
+      const [, variableName, locationsRaw, contractType] = headerMatch;
+      const destinations: Array<{ name: string; id: string; zone: string }> = [];
+      const locRe = /\(([^[]+) \[(\d+)\] \[([^\]]+)\]\)/g;
+      let locMatch: RegExpExecArray | null;
+      while ((locMatch = locRe.exec(locationsRaw)) !== null) {
+        destinations.push({
+          name: locMatch[1].trim(),
+          id: locMatch[2],
+          zone: locMatch[3],
+        });
+      }
+      return {
+        type: 'MISSION_CONTRACT',
+        occurredAt: timestamp,
+        parserVersion: PARSER_VERSION,
+        payload: { variableName, contractType, destinations },
+      };
+    },
+  },
 ];

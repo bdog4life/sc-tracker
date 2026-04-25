@@ -180,4 +180,52 @@ describe('LogParser', () => {
       });
     });
   });
+
+  describe('MISSION_START', () => {
+    it('parses mission creation', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        '<2026-04-22T00:49:11.702Z> [Notice] <CSubsumptionMissionComponent::CreateMissionInstance> [MISSION] Creating subsumption mission module Libs/Subsumption/Missions/EA/FrontendHangar.xml with seed 1487958931 and EntityId 200000000239 [Team_MissionFeatures][Missions]'
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('MISSION_START');
+      expect(events[0].payload).toMatchObject({
+        missionType: 'Libs/Subsumption/Missions/EA/FrontendHangar.xml',
+        seed: '1487958931',
+        entityId: '200000000239',
+      });
+    });
+  });
+
+  describe('MISSION_END', () => {
+    it('parses mission stop', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        '<2026-04-22T00:50:26.222Z> [Notice] <CSubsumptionMissionComponent::StopMissionLogic> [MISSION] Stopping subsumption mission module with EntityId 200000000239 [Team_MissionFeatures][Missions]'
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('MISSION_END');
+      expect(events[0].payload).toMatchObject({ entityId: '200000000239' });
+    });
+  });
+
+  describe('MISSION_CONTRACT', () => {
+    it('parses contract with destinations', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        '<2026-04-22T01:06:03.597Z> [Notice] <GenerateLocationProperty> Generated Locations - variablename: DropoffLocation_BP[Destination], locations: (Wikelo Emporium Dasi Station [1231535936] [TheCollectorsAsteriod_Stanton1])(Wikelo Emporium Kinga Station [3168785171] [TheCollectorsAsteriod_Stanton4]) contract: TheCollector_Intro [Team_MissionFeatures][Missions]'
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('MISSION_CONTRACT');
+      const p = events[0].payload as any;
+      expect(p.contractType).toBe('TheCollector_Intro');
+      expect(p.variableName).toBe('DropoffLocation_BP[Destination]');
+      expect(p.destinations).toHaveLength(2);
+      expect(p.destinations[0]).toMatchObject({
+        name: 'Wikelo Emporium Dasi Station',
+        id: '1231535936',
+        zone: 'TheCollectorsAsteriod_Stanton1',
+      });
+    });
+  });
 });
