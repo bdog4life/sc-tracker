@@ -12,4 +12,5 @@ export interface ParserState {
   characterName: string;
   playerGeid: string;
   sessionStartEmitted: boolean;
+  seenShipHosts: Set<string>;
 }

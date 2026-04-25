@@ -252,4 +252,48 @@ export const patterns: Pattern[] = [
       };
     },
   },
+
+  // SHIP_CLAIM — fires only on "New Insurance Claim", not on "Existing Active"
+  {
+    type: 'SHIP_CLAIM',
+    match: (line) =>
+      line.includes('<CWallet::ProcessClaimToNextStep>') &&
+      line.includes('New Insurance Claim Request'),
+    parse: (line, timestamp): ParsedEvent | null => {
+      const m = line.match(/entitlementURN: ([^,]+), requestId : (\d+)/);
+      if (!m) return null;
+      return {
+        type: 'SHIP_CLAIM',
+        occurredAt: timestamp,
+        parserVersion: PARSER_VERSION,
+        payload: {
+          entitlementUrn: m[1].trim(),
+          requestId: parseInt(m[2], 10),
+        },
+      };
+    },
+  },
+
+  // SHIP_NEARBY — deduplicated by host entity ID per session
+  {
+    type: 'SHIP_NEARBY',
+    match: (line) =>
+      line.includes('[CItemResourceHost::AddHostedNode]') &&
+      line.includes('-- Host'),
+    parse: (line, timestamp, state): ParsedEvent | null => {
+      const m = line.match(/-- Host\s+:(\w+)_(\d+)/);
+      if (!m) return null;
+      const shipClass = m[1];
+      const hostId = m[2];
+      const key = `${shipClass}_${hostId}`;
+      if (state.seenShipHosts.has(key)) return null;
+      state.seenShipHosts.add(key);
+      return {
+        type: 'SHIP_NEARBY',
+        occurredAt: timestamp,
+        parserVersion: PARSER_VERSION,
+        payload: { shipClass, hostId },
+      };
+    },
+  },
 ];

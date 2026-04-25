@@ -16,6 +16,7 @@ export class LogParser {
     characterName: '',
     playerGeid: '',
     sessionStartEmitted: false,
+    seenShipHosts: new Set(),
   };
 
   parseLine(line: string): ParsedEvent[] {
@@ -39,6 +40,7 @@ export class LogParser {
       characterName: '',
       playerGeid: '',
       sessionStartEmitted: false,
+      seenShipHosts: new Set(),
     };
   }
 }

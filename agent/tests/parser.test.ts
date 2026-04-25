@@ -228,4 +228,54 @@ describe('LogParser', () => {
       });
     });
   });
+
+  describe('SHIP_CLAIM', () => {
+    it('parses new insurance claim (not duplicate)', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        '<2026-04-22T00:51:59.944Z> [Notice] <CWallet::ProcessClaimToNextStep> New Insurance Claim Request - entitlementURN: urn:sc:global:entitlement:uuid:e5a6dcc1-1116-50aa-9b1c-dddc384a6b5c, requestId : 1 [Team_GameServices][Transaction]'
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('SHIP_CLAIM');
+      expect(events[0].payload).toMatchObject({
+        entitlementUrn: 'urn:sc:global:entitlement:uuid:e5a6dcc1-1116-50aa-9b1c-dddc384a6b5c',
+        requestId: 1,
+      });
+    });
+
+    it('ignores existing active claim lines', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        '<2026-04-22T00:52:00.600Z> [Notice] <CWallet::ProcessClaimToNextStep> Existing Active Claim Found - Entitilement URN: urn:sc:global:entitlement:uuid:e5a6dcc1-1116-50aa-9b1c-dddc384a6b5c [Team_GameServices][Transaction]'
+      );
+      expect(events).toHaveLength(0);
+    });
+  });
+
+  describe('SHIP_NEARBY', () => {
+    it('parses ship streaming into area', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        '<2026-04-22T00:56:27.268Z> [CItemResourceHost::AddHostedNode] Resource container component was already registered! Entity :QTNK_ANVL_Hawk_841809760801  -- Host  :ANVL_Hawk_841809760599'
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('SHIP_NEARBY');
+      expect(events[0].payload).toMatchObject({
+        shipClass: 'ANVL_Hawk',
+        hostId: '841809760599',
+      });
+    });
+
+    it('deduplicates same ship (multiple tank entries)', () => {
+      // HTNK_ and QTNK_ both fire for the same host — we only emit once per host ID
+      const parser = new LogParser();
+      parser.parseLine(
+        '<2026-04-22T00:56:27.268Z> [CItemResourceHost::AddHostedNode] Resource container component was already registered! Entity :HTNK_ANVL_Hawk_841809760797  -- Host  :ANVL_Hawk_841809760599'
+      );
+      const events = parser.parseLine(
+        '<2026-04-22T00:56:27.268Z> [CItemResourceHost::AddHostedNode] Resource container component was already registered! Entity :QTNK_ANVL_Hawk_841809760801  -- Host  :ANVL_Hawk_841809760599'
+      );
+      expect(events).toHaveLength(0); // second entry for same host suppressed
+    });
+  });
 });
