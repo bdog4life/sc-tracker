@@ -1,0 +1,30 @@
+{
+  "name": "sc-tracker-agent",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "bundle": "npm run build && pkg dist/main.js --target node20-win-x64 --output dist/SCTrackerAgent.exe"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "open": "^10.1.0",
+    "systray2": "^2.1.4",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/ws": "^8.5.12",
+    "pkg": "^5.8.1",
+    "tsx": "^4.15.0",
+    "typescript": "^5.5.0",
+    "vitest": "^1.6.0"
+  },
+  "pkg": {
+    "assets": ["node_modules/systray2/build/**/*"],
+    "targets": ["node20-win-x64"]
+  }
+}
