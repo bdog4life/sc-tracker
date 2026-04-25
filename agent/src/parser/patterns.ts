@@ -73,4 +73,71 @@ export const patterns: Pattern[] = [
       payload: { reason: 'SystemQuit' },
     }),
   },
+
+  // ZONE_ENTERED — fires on SHUDEvent_OnNotification "Added notification", excluding blueprints
+  {
+    type: 'ZONE_ENTERED',
+    match: (line) =>
+      line.includes('<SHUDEvent_OnNotification>') &&
+      line.includes('Added notification') &&
+      !line.includes('"Received Blueprint:'),
+    parse: (line, timestamp): ParsedEvent | null => {
+      const m = line.match(/Added notification "([^"]+)" \[(\d+)\]/);
+      if (!m) return null;
+      return {
+        type: 'ZONE_ENTERED',
+        occurredAt: timestamp,
+        parserVersion: PARSER_VERSION,
+        payload: {
+          notificationText: m[1],
+          notificationIndex: parseInt(m[2], 10),
+        },
+      };
+    },
+  },
+
+  // BLUEPRINT_RECEIVED — SHUDEvent_OnNotification with "Received Blueprint:" text
+  {
+    type: 'BLUEPRINT_RECEIVED',
+    match: (line) =>
+      line.includes('<SHUDEvent_OnNotification>') &&
+      line.includes('Added notification "Received Blueprint:'),
+    parse: (line, timestamp): ParsedEvent | null => {
+      const m = line.match(/Added notification "Received Blueprint: ([^:]+): " \[(\d+)\]/);
+      if (!m) return null;
+      return {
+        type: 'BLUEPRINT_RECEIVED',
+        occurredAt: timestamp,
+        parserVersion: PARSER_VERSION,
+        payload: {
+          blueprintName: m[1].trim(),
+          notificationIndex: parseInt(m[2], 10),
+        },
+      };
+    },
+  },
+
+  // LOCATION_CHANGE
+  {
+    type: 'LOCATION_CHANGE',
+    match: (line) => line.includes('<Update Inventory Location>'),
+    parse: (line, timestamp): ParsedEvent | null => {
+      const m = line.match(
+        /Player \[([^\]]+)\] is changing location\. Landing \[(\d+)\] -> \[(\d+)\]\. Location \[(\d+)\] -> \[(\d+)\]/
+      );
+      if (!m) return null;
+      return {
+        type: 'LOCATION_CHANGE',
+        occurredAt: timestamp,
+        parserVersion: PARSER_VERSION,
+        payload: {
+          playerName: m[1],
+          fromLandingId: m[2],
+          toLandingId: m[3],
+          fromLocationId: m[4],
+          toLocationId: m[5],
+        },
+      };
+    },
+  },
 ];

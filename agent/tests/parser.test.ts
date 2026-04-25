@@ -55,4 +55,92 @@ describe('LogParser', () => {
       expect(events[0].payload).toMatchObject({ reason: 'SystemQuit' });
     });
   });
+
+  describe('ZONE_ENTERED', () => {
+    it('parses jurisdiction notification', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        `<2026-04-22T00:51:03.947Z> [Notice] <SHUDEvent_OnNotification> Added notification "Entered People's Alliance Jurisdiction: " [0] to queue. New queue size: 1, MissionId: [00000000-0000-0000-0000-000000000000], ObjectiveId: [] [Team_CoreGameplayFeatures][Missions][Comms]`
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('ZONE_ENTERED');
+      expect(events[0].payload).toMatchObject({
+        notificationText: "Entered People's Alliance Jurisdiction: ",
+        notificationIndex: 0,
+      });
+    });
+
+    it('parses armistice zone notification', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        `<2026-04-25T13:18:15.359Z> [Notice] <SHUDEvent_OnNotification> Added notification "Entering Armistice Zone - Combat Prohibited: " [1] to queue. New queue size: 2, MissionId: [00000000-0000-0000-0000-000000000000], ObjectiveId: [] [Team_CoreGameplayFeatures][Missions][Comms]`
+      );
+      expect(events[0].payload).toMatchObject({
+        notificationText: 'Entering Armistice Zone - Combat Prohibited: ',
+        notificationIndex: 1,
+      });
+    });
+
+    it('ignores UpdateNotificationItem lines', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        `<2026-04-22T00:51:08.955Z> [Notice] <UpdateNotificationItem> Notification "Entered People's Alliance Jurisdiction: " [0], Action: StartFade [Team_CoreGameplayFeatures][Missions][Comms]`
+      );
+      expect(events).toHaveLength(0);
+    });
+
+    it('does not match blueprint notifications', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        `<2026-04-25T13:54:43.986Z> [Notice] <SHUDEvent_OnNotification> Added notification "Received Blueprint: Corbel Core Halcyon: " [32] to queue. New queue size: 3, MissionId: [00000000-0000-0000-0000-000000000000], ObjectiveId: [] [Team_CoreGameplayFeatures][Missions][Comms]`
+      );
+      // Should produce BLUEPRINT_RECEIVED, NOT ZONE_ENTERED
+      expect(events.every(e => e.type !== 'ZONE_ENTERED')).toBe(true);
+    });
+  });
+
+  describe('BLUEPRINT_RECEIVED', () => {
+    it('parses blueprint reward notification', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        `<2026-04-25T13:54:43.986Z> [Notice] <SHUDEvent_OnNotification> Added notification "Received Blueprint: Corbel Core Halcyon: " [32] to queue. New queue size: 3, MissionId: [00000000-0000-0000-0000-000000000000], ObjectiveId: [] [Team_CoreGameplayFeatures][Missions][Comms]`
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('BLUEPRINT_RECEIVED');
+      expect(events[0].payload).toMatchObject({
+        blueprintName: 'Corbel Core Halcyon',
+        notificationIndex: 32,
+      });
+    });
+
+    it('parses a second blueprint with different name', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        `<2026-04-25T14:02:29.622Z> [Notice] <SHUDEvent_OnNotification> Added notification "Received Blueprint: Palatino Core Metropolis: " [45] to queue. New queue size: 2, MissionId: [00000000-0000-0000-0000-000000000000], ObjectiveId: [] [Team_CoreGameplayFeatures][Missions][Comms]`
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].payload).toMatchObject({
+        blueprintName: 'Palatino Core Metropolis',
+        notificationIndex: 45,
+      });
+    });
+  });
+
+  describe('LOCATION_CHANGE', () => {
+    it('parses location change', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        '<2026-04-22T00:51:03.583Z> [Notice] <Update Inventory Location> Player [Hasansa] is changing location. Landing [0] -> [3058615591]. Location [0] -> [3058615591]. Pending [0] [Team_CoreGameplayFeatures][Inventory]'
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('LOCATION_CHANGE');
+      expect(events[0].payload).toMatchObject({
+        playerName: 'Hasansa',
+        fromLandingId: '0',
+        toLandingId: '3058615591',
+        fromLocationId: '0',
+        toLocationId: '3058615591',
+      });
+    });
+  });
 });
