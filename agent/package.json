@@ -2,12 +2,12 @@
   "name": "sc-tracker-agent",
   "version": "1.0.0",
   "private": true,
-  "main": "dist/main.js",
+  "main": "dist/agent/src/main.js",
   "scripts": {
     "dev": "tsx src/main.ts",
     "build": "tsc",
     "test": "vitest run",
-    "bundle": "npm run build && pkg dist/main.js --target node20-win-x64 --output dist/SCTrackerAgent.exe"
+    "bundle": "npm run build && pkg dist/agent/src/main.js --target node18-win-x64 --output dist/SCTrackerAgent.exe"
   },
   "dependencies": {
     "chokidar": "^3.6.0",
