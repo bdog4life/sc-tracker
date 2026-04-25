@@ -140,4 +140,53 @@ export const patterns: Pattern[] = [
       };
     },
   },
+
+  // ATTACHMENT_RECEIVED — gear equipped at login
+  {
+    type: 'ATTACHMENT_RECEIVED',
+    match: (line) => line.includes('<AttachmentReceived>'),
+    parse: (line, timestamp): ParsedEvent | null => {
+      const m = line.match(
+        /Player\[([^\]]+)\] Attachment\[([^,]+), ([^,]+), (\d+)\] Status\[([^\]]+)\] Port\[([^\]]+)\]/
+      );
+      if (!m) return null;
+      return {
+        type: 'ATTACHMENT_RECEIVED',
+        occurredAt: timestamp,
+        parserVersion: PARSER_VERSION,
+        payload: {
+          playerName: m[1],
+          attachmentName: m[2],
+          itemClass: m[3],
+          itemId: m[4],
+          status: m[5],
+          port: m[6],
+        },
+      };
+    },
+  },
+
+  // ITEM_STORED — player stores item to inventory
+  {
+    type: 'ITEM_STORED',
+    match: (line) => line.includes('<StoreItem>') && line.includes("store '"),
+    parse: (line, timestamp): ParsedEvent | null => {
+      const m = line.match(
+        /Request\[(\d+)\] store '([^']+)' \[(\d+)\] by '([^']+)' \[(\d+)\].*Class\[([^\]]+)\]/
+      );
+      if (!m) return null;
+      return {
+        type: 'ITEM_STORED',
+        occurredAt: timestamp,
+        parserVersion: PARSER_VERSION,
+        payload: {
+          requestId: parseInt(m[1], 10),
+          itemName: m[2],
+          itemId: m[3],
+          playerName: m[4],
+          itemClass: m[6],
+        },
+      };
+    },
+  },
 ];

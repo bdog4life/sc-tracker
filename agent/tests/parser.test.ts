@@ -143,4 +143,41 @@ describe('LogParser', () => {
       });
     });
   });
+
+  describe('ATTACHMENT_RECEIVED', () => {
+    it('parses gear attachment', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        '<2026-04-22T00:49:11.683Z> [Notice] <AttachmentReceived> Player[Hasansa] Attachment[body_01_noMagicPocket_200000000216, body_01_noMagicPocket, 200000000216] Status[persistent] Port[Body_ItemPort] Elapsed[29.601799] [Team_CoreGameplayFeatures][Inventory]'
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('ATTACHMENT_RECEIVED');
+      expect(events[0].payload).toMatchObject({
+        playerName: 'Hasansa',
+        attachmentName: 'body_01_noMagicPocket_200000000216',
+        itemClass: 'body_01_noMagicPocket',
+        itemId: '200000000216',
+        status: 'persistent',
+        port: 'Body_ItemPort',
+      });
+    });
+  });
+
+  describe('ITEM_STORED', () => {
+    it('parses store item event', () => {
+      const parser = new LogParser();
+      const events = parser.parseLine(
+        `<2026-04-22T01:20:31.927Z> [Notice] <StoreItem> Request[25] store 'cds_combat_light_backpack_01_02_01_9945947247211' [9945947247211] by 'acidrom' [201926431414] To Inventory[INVALID] Class[cds_combat_light_backpack_01_02_01] Rank[ampcsvjpvrigzzzzaaaaak] ItemsCount[68] [Team_CoreGameplayFeatures][Inventory]`
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0].type).toBe('ITEM_STORED');
+      expect(events[0].payload).toMatchObject({
+        requestId: 25,
+        itemName: 'cds_combat_light_backpack_01_02_01_9945947247211',
+        itemId: '9945947247211',
+        playerName: 'acidrom',
+        itemClass: 'cds_combat_light_backpack_01_02_01',
+      });
+    });
+  });
 });
