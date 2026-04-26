@@ -1,5 +1,5 @@
 // server/src/routes/dashboard.ts
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { pool } from '../db/client';
 import { requireAuth } from '../middleware/session';
 import { formatDuration, formatRelativeTime, avatarUrl, eventDescription, eventCategory } from '../utils/format';
@@ -10,9 +10,15 @@ function theme(req: Request): 'dark-purple' | 'dark-amber' {
   return req.session.theme ?? 'dark-purple';
 }
 
+// Fix 2: asyncRoute wrapper for unhandled async errors in Express 4
+function asyncRoute(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
+  return (req: Request, res: Response, next: NextFunction) =>
+    fn(req, res, next).catch(next);
+}
+
 // ── GET /tracker ─────────────────────────────────────────────────────────────
 
-dashboardRouter.get('/', requireAuth, async (req: Request, res: Response) => {
+dashboardRouter.get('/', requireAuth, asyncRoute(async (req, res) => {
   const userId = req.session.userId!;
 
   const [aggRow, lastSession, recentEvents, rankRow] = await Promise.all([
@@ -25,11 +31,11 @@ dashboardRouter.get('/', requireAuth, async (req: Request, res: Response) => {
       zones_visited: string;
     }>(`
       SELECT
-        (SELECT COALESCE(SUM(duration_secs), 0) FROM sc_tracker.sessions WHERE user_id = $1)::int AS total_playtime_secs,
-        (SELECT COUNT(*) FROM sc_tracker.sessions WHERE user_id = $1)::int AS session_count,
-        (SELECT COUNT(*) FROM sc_tracker.events WHERE user_id = $1 AND event_type = 'MISSION_START')::int AS mission_count,
-        (SELECT COUNT(*) FROM sc_tracker.events WHERE user_id = $1 AND event_type = 'SHIP_CLAIM')::int AS ships_lost,
-        (SELECT COUNT(*) FROM sc_tracker.events WHERE user_id = $1 AND event_type = 'ZONE_ENTERED')::int AS zones_visited
+        (SELECT COALESCE(SUM(duration_secs), 0) FROM sc_tracker.sessions WHERE user_id = $1) AS total_playtime_secs,
+        (SELECT COUNT(*) FROM sc_tracker.sessions WHERE user_id = $1) AS session_count,
+        (SELECT COUNT(*) FROM sc_tracker.events WHERE user_id = $1 AND event_type = 'MISSION_START') AS mission_count,
+        (SELECT COUNT(*) FROM sc_tracker.events WHERE user_id = $1 AND event_type = 'SHIP_CLAIM') AS ships_lost,
+        (SELECT COUNT(*) FROM sc_tracker.events WHERE user_id = $1 AND event_type = 'ZONE_ENTERED') AS zones_visited
     `, [userId]),
 
     // Last session with per-session event counts
@@ -40,10 +46,10 @@ dashboardRouter.get('/', requireAuth, async (req: Request, res: Response) => {
     }>(`
       SELECT
         s.id, s.character_name, s.game_version, s.game_branch, s.started_at, s.duration_secs,
-        COUNT(e.id) FILTER (WHERE e.event_type = 'ZONE_ENTERED')::int AS zone_count,
-        COUNT(e.id) FILTER (WHERE e.event_type = 'MISSION_START')::int AS mission_count,
-        COUNT(e.id) FILTER (WHERE e.event_type = 'SHIP_CLAIM')::int AS ships_lost,
-        COUNT(e.id) FILTER (WHERE e.event_type = 'BLUEPRINT_RECEIVED')::int AS blueprint_count
+        COUNT(e.id) FILTER (WHERE e.event_type = 'ZONE_ENTERED') AS zone_count,
+        COUNT(e.id) FILTER (WHERE e.event_type = 'MISSION_START') AS mission_count,
+        COUNT(e.id) FILTER (WHERE e.event_type = 'SHIP_CLAIM') AS ships_lost,
+        COUNT(e.id) FILTER (WHERE e.event_type = 'BLUEPRINT_RECEIVED') AS blueprint_count
       FROM sc_tracker.sessions s
       LEFT JOIN sc_tracker.events e ON e.session_id = s.id
       WHERE s.user_id = $1
@@ -106,18 +112,18 @@ dashboardRouter.get('/', requireAuth, async (req: Request, res: Response) => {
       relativeTime: formatRelativeTime(new Date(e.occurred_at)),
     })),
   });
-});
+}));
 
 // ── GET /tracker/sessions ─────────────────────────────────────────────────────
 
-dashboardRouter.get('/sessions', requireAuth, async (req: Request, res: Response) => {
+dashboardRouter.get('/sessions', requireAuth, asyncRoute(async (req, res) => {
   const userId = req.session.userId!;
   const page = Math.max(1, parseInt(req.query['page'] as string || '1', 10));
   const perPage = 25;
   const offset = (page - 1) * perPage;
 
   const [totalRow, rows] = await Promise.all([
-    pool.query<{ total: string }>(`SELECT COUNT(*)::int AS total FROM sc_tracker.sessions WHERE user_id = $1`, [userId]),
+    pool.query<{ total: string }>(`SELECT COUNT(*) AS total FROM sc_tracker.sessions WHERE user_id = $1`, [userId]),
     pool.query<{
       id: number; started_at: Date; duration_secs: number | null;
       game_version: string | null; game_branch: string | null;
@@ -125,9 +131,9 @@ dashboardRouter.get('/sessions', requireAuth, async (req: Request, res: Response
     }>(`
       SELECT
         s.id, s.started_at, s.duration_secs, s.game_version, s.game_branch,
-        COUNT(e.id) FILTER (WHERE e.event_type = 'ZONE_ENTERED')::int AS zone_count,
-        COUNT(e.id) FILTER (WHERE e.event_type = 'MISSION_START')::int AS mission_count,
-        COUNT(e.id) FILTER (WHERE e.event_type = 'SHIP_CLAIM')::int AS ships_lost
+        COUNT(e.id) FILTER (WHERE e.event_type = 'ZONE_ENTERED') AS zone_count,
+        COUNT(e.id) FILTER (WHERE e.event_type = 'MISSION_START') AS mission_count,
+        COUNT(e.id) FILTER (WHERE e.event_type = 'SHIP_CLAIM') AS ships_lost
       FROM sc_tracker.sessions s
       LEFT JOIN sc_tracker.events e ON e.session_id = s.id
       WHERE s.user_id = $1
@@ -153,35 +159,34 @@ dashboardRouter.get('/sessions', requireAuth, async (req: Request, res: Response
     totalPages,
     total,
   });
-});
+}));
 
 // ── GET /tracker/sessions/:id ─────────────────────────────────────────────────
 
-dashboardRouter.get('/sessions/:id', requireAuth, async (req: Request, res: Response) => {
+dashboardRouter.get('/sessions/:id', requireAuth, asyncRoute(async (req, res) => {
   const userId = req.session.userId!;
   const sessionId = parseInt(req.params['id'], 10);
-  if (isNaN(sessionId)) return res.status(404).send('Not found');
+  if (isNaN(sessionId)) { res.status(404).send('Not found'); return; }
 
-  const [sessionRow, eventsRow] = await Promise.all([
-    pool.query<{
-      id: number; character_name: string; game_version: string | null;
-      game_branch: string | null; started_at: Date; duration_secs: number | null;
-    }>(`
-      SELECT id, character_name, game_version, game_branch, started_at, duration_secs
-      FROM sc_tracker.sessions
-      WHERE id = $1 AND user_id = $2
-    `, [sessionId, userId]),
+  // Fix 1: sequential queries — check ownership before fetching events (IDOR prevention)
+  const sessionRow = await pool.query<{
+    id: number; character_name: string; game_version: string | null;
+    game_branch: string | null; started_at: Date; duration_secs: number | null;
+  }>(`
+    SELECT id, character_name, game_version, game_branch, started_at, duration_secs
+    FROM sc_tracker.sessions
+    WHERE id = $1 AND user_id = $2
+  `, [sessionId, userId]);
 
-    pool.query<{ event_type: string; payload: Record<string, unknown>; occurred_at: Date }>(`
-      SELECT event_type, payload, occurred_at
-      FROM sc_tracker.events
-      WHERE session_id = $1
-      ORDER BY occurred_at ASC
-    `, [sessionId]),
-  ]);
-
-  if (!sessionRow.rows[0]) return res.status(404).send('Session not found');
+  if (!sessionRow.rows[0]) { res.status(404).send('Session not found'); return; }
   const s = sessionRow.rows[0];
+
+  const eventsRow = await pool.query<{ event_type: string; payload: Record<string, unknown>; occurred_at: Date }>(`
+    SELECT event_type, payload, occurred_at
+    FROM sc_tracker.events
+    WHERE session_id = $1
+    ORDER BY occurred_at ASC
+  `, [sessionId]);
 
   res.render('session-detail', {
     title: 'Session Detail',
@@ -200,7 +205,7 @@ dashboardRouter.get('/sessions/:id', requireAuth, async (req: Request, res: Resp
       relativeTime: formatRelativeTime(new Date(e.occurred_at)),
     })),
   });
-});
+}));
 
 // ── GET /tracker/leaderboard ──────────────────────────────────────────────────
 
@@ -214,7 +219,7 @@ async function leaderboardQuery(by: LeaderboardBy): Promise<Array<{
     case 'missions':
       sql = `
         SELECT u.discord_id, u.discord_username, u.discord_avatar,
-               COUNT(e.id)::int AS metric
+               COUNT(e.id) AS metric
         FROM sc_tracker.users u
         LEFT JOIN sc_tracker.events e ON e.user_id = u.id AND e.event_type = 'MISSION_START'
         GROUP BY u.id ORDER BY metric DESC LIMIT 100`;
@@ -222,7 +227,7 @@ async function leaderboardQuery(by: LeaderboardBy): Promise<Array<{
     case 'playtime':
       sql = `
         SELECT u.discord_id, u.discord_username, u.discord_avatar,
-               COALESCE(SUM(s.duration_secs), 0)::int AS metric
+               COALESCE(SUM(s.duration_secs), 0) AS metric
         FROM sc_tracker.users u
         LEFT JOIN sc_tracker.sessions s ON s.user_id = u.id
         GROUP BY u.id ORDER BY metric DESC LIMIT 100`;
@@ -230,7 +235,7 @@ async function leaderboardQuery(by: LeaderboardBy): Promise<Array<{
     case 'sessions':
       sql = `
         SELECT u.discord_id, u.discord_username, u.discord_avatar,
-               COUNT(s.id)::int AS metric
+               COUNT(s.id) AS metric
         FROM sc_tracker.users u
         LEFT JOIN sc_tracker.sessions s ON s.user_id = u.id
         GROUP BY u.id ORDER BY metric DESC LIMIT 100`;
@@ -238,7 +243,7 @@ async function leaderboardQuery(by: LeaderboardBy): Promise<Array<{
     case 'ships':
       sql = `
         SELECT u.discord_id, u.discord_username, u.discord_avatar,
-               COUNT(e.id)::int AS metric
+               COUNT(e.id) AS metric
         FROM sc_tracker.users u
         LEFT JOIN sc_tracker.events e ON e.user_id = u.id AND e.event_type = 'SHIP_CLAIM'
         GROUP BY u.id ORDER BY metric DESC LIMIT 100`;
@@ -246,7 +251,7 @@ async function leaderboardQuery(by: LeaderboardBy): Promise<Array<{
     case 'zones':
       sql = `
         SELECT u.discord_id, u.discord_username, u.discord_avatar,
-               COUNT(e.id)::int AS metric
+               COUNT(e.id) AS metric
         FROM sc_tracker.users u
         LEFT JOIN sc_tracker.events e ON e.user_id = u.id AND e.event_type = 'ZONE_ENTERED'
         GROUP BY u.id ORDER BY metric DESC LIMIT 100`;
@@ -258,7 +263,7 @@ async function leaderboardQuery(by: LeaderboardBy): Promise<Array<{
   return result.rows;
 }
 
-dashboardRouter.get('/leaderboard', requireAuth, async (req: Request, res: Response) => {
+dashboardRouter.get('/leaderboard', requireAuth, asyncRoute(async (req, res) => {
   const validBy: LeaderboardBy[] = ['missions', 'playtime', 'sessions', 'ships', 'zones'];
   const by: LeaderboardBy = validBy.includes(req.query['by'] as LeaderboardBy)
     ? (req.query['by'] as LeaderboardBy)
@@ -281,14 +286,15 @@ dashboardRouter.get('/leaderboard', requireAuth, async (req: Request, res: Respo
       isMe: r.discord_id === myDiscordId,
     })),
   });
-});
+}));
 
 // ── GET /tracker/players/:discordId ───────────────────────────────────────────
 
-dashboardRouter.get('/players/:discordId', requireAuth, async (req: Request, res: Response) => {
+dashboardRouter.get('/players/:discordId', requireAuth, asyncRoute(async (req, res) => {
   const targetId = req.params['discordId'];
 
-  const [profileRow, recentSessionsRow] = await Promise.all([
+  // Fix 3: all 3 queries run in parallel
+  const [profileRow, recentSessionsRow, rankRow] = await Promise.all([
     pool.query<{
       discord_id: string; discord_username: string; discord_avatar: string | null;
       member_since: Date; missions: string; total_playtime_secs: string;
@@ -296,10 +302,10 @@ dashboardRouter.get('/players/:discordId', requireAuth, async (req: Request, res
     }>(`
       SELECT
         u.discord_id, u.discord_username, u.discord_avatar, u.created_at AS member_since,
-        (SELECT COUNT(*) FROM sc_tracker.events WHERE user_id = u.id AND event_type = 'MISSION_START')::int AS missions,
-        (SELECT COALESCE(SUM(duration_secs), 0) FROM sc_tracker.sessions WHERE user_id = u.id)::int AS total_playtime_secs,
-        (SELECT COUNT(*) FROM sc_tracker.sessions WHERE user_id = u.id)::int AS sessions,
-        (SELECT COUNT(*) FROM sc_tracker.events WHERE user_id = u.id AND event_type = 'SHIP_CLAIM')::int AS ships_lost
+        (SELECT COUNT(*) FROM sc_tracker.events WHERE user_id = u.id AND event_type = 'MISSION_START') AS missions,
+        (SELECT COALESCE(SUM(duration_secs), 0) FROM sc_tracker.sessions WHERE user_id = u.id) AS total_playtime_secs,
+        (SELECT COUNT(*) FROM sc_tracker.sessions WHERE user_id = u.id) AS sessions,
+        (SELECT COUNT(*) FROM sc_tracker.events WHERE user_id = u.id AND event_type = 'SHIP_CLAIM') AS ships_lost
       FROM sc_tracker.users u
       WHERE u.discord_id = $1
     `, [targetId]),
@@ -309,7 +315,7 @@ dashboardRouter.get('/players/:discordId', requireAuth, async (req: Request, res
     }>(`
       SELECT
         s.id, s.started_at, s.duration_secs,
-        COUNT(e.id) FILTER (WHERE e.event_type = 'MISSION_START')::int AS mission_count
+        COUNT(e.id) FILTER (WHERE e.event_type = 'MISSION_START') AS mission_count
       FROM sc_tracker.sessions s
       LEFT JOIN sc_tracker.events e ON e.session_id = s.id
       WHERE s.user_id = (SELECT id FROM sc_tracker.users WHERE discord_id = $1)
@@ -317,20 +323,19 @@ dashboardRouter.get('/players/:discordId', requireAuth, async (req: Request, res
       ORDER BY s.started_at DESC
       LIMIT 10
     `, [targetId]),
+
+    pool.query<{ rank: string }>(`
+      WITH ranks AS (
+        SELECT user_id, RANK() OVER (ORDER BY COUNT(*) DESC) AS rank
+        FROM sc_tracker.events WHERE event_type = 'MISSION_START' GROUP BY user_id
+      )
+      SELECT rank FROM ranks
+      WHERE user_id = (SELECT id FROM sc_tracker.users WHERE discord_id = $1)
+    `, [targetId]),
   ]);
 
-  if (!profileRow.rows[0]) return res.status(404).send('Player not found');
+  if (!profileRow.rows[0]) { res.status(404).send('Player not found'); return; }
   const p = profileRow.rows[0];
-
-  // Calculate rank by missions
-  const rankRow = await pool.query<{ rank: string }>(`
-    WITH ranks AS (
-      SELECT user_id, RANK() OVER (ORDER BY COUNT(*) DESC) AS rank
-      FROM sc_tracker.events WHERE event_type = 'MISSION_START' GROUP BY user_id
-    )
-    SELECT rank FROM ranks
-    WHERE user_id = (SELECT id FROM sc_tracker.users WHERE discord_id = $1)
-  `, [targetId]);
 
   res.render('profile', {
     title: `${p.discord_username}'s Profile`,
@@ -354,7 +359,7 @@ dashboardRouter.get('/players/:discordId', requireAuth, async (req: Request, res
       missionCount: parseInt(s.mission_count),
     })),
   });
-});
+}));
 
 // ── POST /tracker/theme ───────────────────────────────────────────────────────
 
