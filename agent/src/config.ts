@@ -9,12 +9,23 @@ export interface AgentConfig {
   localPort: number;
 }
 
-const SC_LOG_CANDIDATES = [
-  'D:\\Roberts Space Industries\\StarCitizen\\LIVE\\Game.log',
-  'D:\\Roberts Space Industries\\StarCitizen\\PTU\\Game.log',
-  'C:\\Program Files\\Roberts Space Industries\\StarCitizen\\LIVE\\Game.log',
-  'C:\\Program Files\\Roberts Space Industries\\StarCitizen\\PTU\\Game.log',
+const SC_SUBDIRS = [
+  'Roberts Space Industries\\StarCitizen\\LIVE\\Game.log',
+  'Roberts Space Industries\\StarCitizen\\PTU\\Game.log',
+  'Program Files\\Roberts Space Industries\\StarCitizen\\LIVE\\Game.log',
+  'Program Files\\Roberts Space Industries\\StarCitizen\\PTU\\Game.log',
 ];
+
+function buildLogCandidates(): string[] {
+  const drives = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const candidates: string[] = [];
+  for (const drive of drives) {
+    for (const sub of SC_SUBDIRS) {
+      candidates.push(`${drive}:\\${sub}`);
+    }
+  }
+  return candidates;
+}
 
 function getConfigDir(): string {
   if (process.env['SC_TRACKER_CONFIG_DIR']) {
@@ -45,5 +56,5 @@ export function writeConfig(config: AgentConfig): void {
 }
 
 export function detectLogPath(): string | null {
-  return SC_LOG_CANDIDATES.find(existsSync) ?? null;
+  return buildLogCandidates().find(existsSync) ?? null;
 }

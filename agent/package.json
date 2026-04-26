@@ -7,7 +7,7 @@
     "dev": "tsx src/main.ts",
     "build": "tsc",
     "test": "vitest run",
-    "bundle": "npm run build && pkg dist/agent/src/main.js --target node18-win-x64 --output dist/SCTrackerAgent.exe"
+    "bundle": "npm run build && pkg dist/agent/src/main.js --target node18-win-x64 --output dist/SCTrackerAgent.exe && node scripts/hide-console.js"
   },
   "dependencies": {
     "chokidar": "^3.6.0",
