@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import https from 'https';
 import { pool } from '../db/client';
 import { generateToken, verifyToken } from '../auth/tokens';
+import '../middleware/session'; // load SessionData augmentation
 
 export const authRouter = Router();
 
@@ -41,12 +42,15 @@ function httpsRequest(
 }
 
 // Step 1 — redirect to Discord OAuth
-authRouter.get('/discord', (_req: Request, res: Response) => {
+authRouter.get('/discord', (req: Request, res: Response) => {
+  const isDashboard = req.query['dashboard'] === '1';
+  const state = Buffer.from(JSON.stringify({ dashboard: isDashboard })).toString('base64url');
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
     response_type: 'code',
     scope: 'identify',
+    state,
   });
   res.redirect(`${DISCORD_API}/oauth2/authorize?${params}`);
 });
@@ -55,6 +59,16 @@ authRouter.get('/discord', (_req: Request, res: Response) => {
 authRouter.get('/discord/callback', async (req: Request, res: Response) => {
   const code = req.query['code'] as string | undefined;
   if (!code) return res.status(400).send('Missing code');
+
+  // Decode state to check if this is a dashboard login
+  let isDashboard = false;
+  try {
+    const raw = req.query['state'] as string | undefined;
+    if (raw) {
+      const decoded = JSON.parse(Buffer.from(raw, 'base64url').toString()) as { dashboard?: boolean };
+      isDashboard = decoded.dashboard === true;
+    }
+  } catch { /* ignore malformed state */ }
 
   // Exchange code for access token
   const body = new URLSearchParams({
@@ -80,18 +94,33 @@ authRouter.get('/discord/callback', async (req: Request, res: Response) => {
 
   // Upsert user in DB
   const agentToken = generateToken(user.id);
-  await pool.query(
+  const result = await pool.query(
     `INSERT INTO sc_tracker.users (discord_id, discord_username, discord_avatar, token)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (discord_id) DO UPDATE
        SET discord_username = EXCLUDED.discord_username,
            discord_avatar   = EXCLUDED.discord_avatar,
            token            = EXCLUDED.token,
-           updated_at       = NOW()`,
+           updated_at       = NOW()
+     RETURNING id`,
     [user.id, user.username, user.avatar ?? null, agentToken]
   );
+  const userId: number = parseInt(result.rows[0].id as string, 10);
 
-  // Show setup code to user
+  if (isDashboard) {
+    // Populate session and redirect to dashboard
+    req.session.userId = userId;
+    req.session.discordId = user.id;
+    req.session.username = user.username;
+    req.session.avatar = user.avatar ?? null;
+    req.session.theme = req.session.theme ?? 'dark-purple';
+    return req.session.save((err) => {
+      if (err) return res.status(500).send('Session error');
+      res.redirect('/tracker');
+    });
+  }
+
+  // Agent flow — show token
   res.send(`
     <html><body style="font-family:monospace;padding:2rem">
       <h2>SC Tracker Connected!</h2>
@@ -114,4 +143,12 @@ authRouter.get('/verify', async (req: Request, res: Response) => {
   );
   if (!result.rows[0]) return res.status(401).json({ error: 'User not found' });
   res.json({ userId: result.rows[0].id, username: result.rows[0].discord_username });
+});
+
+// Dashboard logout
+authRouter.post('/logout', (req: Request, res: Response) => {
+  req.session.destroy((err) => {
+    if (err) console.error('[auth] session destroy failed:', err);
+    res.redirect('/auth/discord?dashboard=1');
+  });
 });

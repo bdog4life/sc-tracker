@@ -1,0 +1,46 @@
+<%- include('layout') %>
+
+<h1 class="page-title">Sessions</h1>
+
+<% if (sessions.length === 0 && page === 1) { %>
+  <div class="card"><p class="empty">No sessions yet.</p></div>
+<% } else { %>
+<div class="card table-wrap">
+  <table>
+    <thead><tr>
+      <th>Date</th>
+      <th>Duration</th>
+      <th>Version</th>
+      <th>Branch</th>
+      <th>Zones</th>
+      <th>Missions</th>
+      <th>Ships Lost</th>
+      <th></th>
+    </tr></thead>
+    <tbody>
+    <% sessions.forEach(s => { %>
+      <tr>
+        <td><%= s.startedAtFormatted %></td>
+        <td><%= s.durationFormatted %></td>
+        <td><%= s.game_version ?? '—' %></td>
+        <td><%= s.game_branch ?? '—' %></td>
+        <td><%= s.zone_count %></td>
+        <td><%= s.mission_count %></td>
+        <td><%= s.ships_lost %></td>
+        <td><a href="/tracker/sessions/<%= s.id %>">View →</a></td>
+      </tr>
+    <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<% if (totalPages > 1) { %>
+<div class="pagination">
+  <% if (page > 1) { %><a href="/tracker/sessions?page=<%= page - 1 %>">← Prev</a><% } %>
+  <span class="current">Page <%= page %> of <%= totalPages %></span>
+  <% if (page < totalPages) { %><a href="/tracker/sessions?page=<%= page + 1 %>">Next →</a><% } %>
+</div>
+<% } %>
+<% } %>
+
+</main></body></html>

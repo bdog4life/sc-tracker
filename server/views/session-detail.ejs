@@ -1,0 +1,42 @@
+<%- include('layout') %>
+
+<div style="margin-bottom:1rem">
+  <a href="/tracker/sessions">← Back to sessions</a>
+</div>
+
+<div class="card" style="margin-bottom:1.5rem">
+  <div style="display:flex;justify-content:space-between;align-items:start">
+    <div>
+      <div style="font-size:1.125rem;font-weight:600;margin-bottom:0.25rem"><%= session.character_name %></div>
+      <div style="color:var(--text-2);font-size:0.875rem">
+        <%= session.startedAtFormatted %>
+        · <%= session.durationFormatted %>
+        <% if (session.game_version) { %> · v<%= session.game_version %><% } %>
+        <% if (session.game_branch) { %> · <%= session.game_branch %><% } %>
+      </div>
+    </div>
+    <div style="color:var(--text-2);font-size:0.875rem"><%= events.length %> events</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Event Timeline</div>
+  <% if (events.length === 0) { %>
+    <p class="empty">No events recorded for this session.</p>
+  <% } else { %>
+  <div class="timeline">
+    <% events.forEach(e => { %>
+    <div class="timeline-row">
+      <div class="t-time" title="<%= new Date(e.occurred_at).toLocaleString() %>"><%= e.timeFormatted %></div>
+      <div class="t-dot-col"><div class="t-dot <%= e.category %>"></div></div>
+      <div>
+        <div class="t-desc"><%= e.description %></div>
+        <div class="t-rel"><%= e.relativeTime %></div>
+      </div>
+    </div>
+    <% }) %>
+  </div>
+  <% } %>
+</div>
+
+</main></body></html>

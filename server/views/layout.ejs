@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html data-theme="<%= theme %>">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SC Tracker — <%= title %></title>
+  <link rel="stylesheet" href="/tracker.css">
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-brand" href="/tracker">SC Tracker</a>
+  <div class="nav-links">
+    <a href="/tracker">Overview</a>
+    <a href="/tracker/sessions">Sessions</a>
+    <a href="/tracker/leaderboard">Leaderboard</a>
+  </div>
+  <div class="nav-right">
+    <form method="POST" action="/tracker/theme" style="display:inline">
+      <input type="hidden" name="theme" value="<%= theme === 'dark-purple' ? 'dark-amber' : 'dark-purple' %>">
+      <input type="hidden" name="redirect" value="<%= locals.currentPath ?? '/tracker' %>">
+      <button class="btn-theme" type="submit"><%= theme === 'dark-purple' ? '🌙' : '☀️' %></button>
+    </form>
+    <img class="nav-avatar" src="<%= user.avatar %>" alt="">
+    <span class="nav-username"><%= user.username %></span>
+    <form method="POST" action="/auth/logout" style="display:inline">
+      <button class="btn-logout" type="submit">Logout</button>
+    </form>
+  </div>
+</nav>
+<main class="page">

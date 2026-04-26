@@ -1,0 +1,111 @@
+<%- include('layout') %>
+
+<h1 class="page-title">Overview</h1>
+
+<div class="stat-bar">
+  <div class="stat-item">
+    <div class="stat-value"><%= stats.totalPlaytime %></div>
+    <div class="stat-label">Playtime</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value"><%= stats.sessionCount %></div>
+    <div class="stat-label">Sessions</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value"><%= stats.missionCount %></div>
+    <div class="stat-label">Missions</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value"><%= stats.shipsLost %></div>
+    <div class="stat-label">Ships Lost</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value"><%= stats.zonesVisited %></div>
+    <div class="stat-label">Zones</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value"><%= stats.rank ?? '—' %></div>
+    <div class="stat-label">LB Rank</div>
+  </div>
+</div>
+
+<% if (heroSession) { %>
+<div class="hero-card">
+  <div class="hero-header">
+    <div>
+      <div class="hero-title"><%= heroSession.character_name %></div>
+      <div class="hero-meta">
+        <%= heroSession.startedAtFormatted %>
+        · <%= heroSession.durationFormatted %>
+        <% if (heroSession.game_version) { %> · v<%= heroSession.game_version %><% } %>
+        <% if (heroSession.game_branch) { %> · <%= heroSession.game_branch %><% } %>
+      </div>
+    </div>
+    <a href="/tracker/sessions/<%= heroSession.id %>">View details →</a>
+  </div>
+  <div class="hero-stats">
+    <div>
+      <div class="hero-stat-value"><%= heroSession.zone_count %></div>
+      <div class="hero-stat-label">Zones</div>
+    </div>
+    <div>
+      <div class="hero-stat-value"><%= heroSession.mission_count %></div>
+      <div class="hero-stat-label">Missions</div>
+    </div>
+    <div>
+      <div class="hero-stat-value"><%= heroSession.ships_lost %></div>
+      <div class="hero-stat-label">Ships Lost</div>
+    </div>
+    <div>
+      <div class="hero-stat-value"><%= heroSession.blueprint_count %></div>
+      <div class="hero-stat-label">Blueprints</div>
+    </div>
+  </div>
+</div>
+<% } else { %>
+<div class="card"><p class="empty">No sessions yet. Start the agent to begin tracking.</p></div>
+<% } %>
+
+<div class="two-col">
+  <div class="card">
+    <div class="card-title">Recent Sessions</div>
+    <% if (recentSessions.length === 0) { %>
+      <p class="empty">No sessions</p>
+    <% } else { %>
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Duration</th><th>Version</th><th></th>
+      </tr></thead>
+      <tbody>
+      <% recentSessions.forEach(s => { %>
+        <tr>
+          <td><%= s.startedAtFormatted %></td>
+          <td><%= s.durationFormatted %></td>
+          <td><%= s.game_version ?? '—' %></td>
+          <td><a href="/tracker/sessions/<%= s.id %>">View →</a></td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Recent Events</div>
+    <% if (recentEvents.length === 0) { %>
+      <p class="empty">No events</p>
+    <% } else { %>
+    <div class="event-list">
+      <% recentEvents.forEach(e => { %>
+      <div class="event-row">
+        <span class="event-type"><%= e.event_type.replace(/_/g, ' ') %></span>
+        <span class="event-desc"><%= e.description %></span>
+        <span class="event-time"><%= e.relativeTime %></span>
+      </div>
+      <% }) %>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+</main></body></html>

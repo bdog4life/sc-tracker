@@ -1,0 +1,61 @@
+<%- include('layout') %>
+
+<div style="margin-bottom:1rem">
+  <a href="/tracker/leaderboard">← Back to leaderboard</a>
+</div>
+
+<div class="profile-header">
+  <img class="profile-avatar" src="<%= profile.avatar %>" alt="">
+  <div>
+    <div class="profile-name"><%= profile.username %></div>
+    <div class="profile-meta">
+      Member since <%= profile.memberSince %>
+      <% if (profile.rank) { %> · Rank #<%= profile.rank %><% } %>
+    </div>
+  </div>
+</div>
+
+<div class="stat-bar" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.5rem">
+  <div class="stat-item">
+    <div class="stat-value"><%= profile.missions %></div>
+    <div class="stat-label">Missions</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value"><%= profile.totalPlaytime %></div>
+    <div class="stat-label">Playtime</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value"><%= profile.sessions %></div>
+    <div class="stat-label">Sessions</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value"><%= profile.shipsLost %></div>
+    <div class="stat-label">Ships Lost</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">Recent Sessions</div>
+  <% if (recentSessions.length === 0) { %>
+    <p class="empty">No sessions yet.</p>
+  <% } else { %>
+  <table>
+    <thead><tr>
+      <th>Date</th>
+      <th>Duration</th>
+      <th>Missions</th>
+    </tr></thead>
+    <tbody>
+    <% recentSessions.forEach(s => { %>
+    <tr>
+      <td><%= s.startedAtFormatted %></td>
+      <td><%= s.durationFormatted %></td>
+      <td><%= s.missionCount %></td>
+    </tr>
+    <% }) %>
+    </tbody>
+  </table>
+  <% } %>
+</div>
+
+</main></body></html>
