@@ -10,6 +10,11 @@ import { sessionMiddleware } from './middleware/session';
 
 const PORT = parseInt(process.env['PORT'] ?? '3000', 10);
 
+const REQUIRED_ENV = ['SESSION_SECRET', 'JWT_SECRET', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET', 'DATABASE_URL'];
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) throw new Error(`Missing required env var: ${key}`);
+}
+
 async function main(): Promise<void> {
   await migrate();
 
