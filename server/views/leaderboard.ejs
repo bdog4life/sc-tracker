@@ -1,0 +1,48 @@
+<%- include('layout') %>
+
+<h1 class="page-title">Leaderboard</h1>
+
+<div class="tabs">
+  <a href="/tracker/leaderboard?by=missions"  class="tab <%= by === 'missions'  ? 'active' : '' %>">Missions</a>
+  <a href="/tracker/leaderboard?by=playtime"  class="tab <%= by === 'playtime'  ? 'active' : '' %>">Playtime</a>
+  <a href="/tracker/leaderboard?by=sessions"  class="tab <%= by === 'sessions'  ? 'active' : '' %>">Sessions</a>
+  <a href="/tracker/leaderboard?by=ships"     class="tab <%= by === 'ships'     ? 'active' : '' %>">Ships Lost</a>
+  <a href="/tracker/leaderboard?by=zones"     class="tab <%= by === 'zones'     ? 'active' : '' %>">Zones</a>
+</div>
+
+<% if (rows.length === 0) { %>
+  <div class="card"><p class="empty">No data yet.</p></div>
+<% } else { %>
+<div class="card table-wrap">
+  <table>
+    <thead><tr>
+      <th style="width:60px">Rank</th>
+      <th>Player</th>
+      <th style="text-align:right"><%= by === 'playtime' ? 'Total Playtime' : by.charAt(0).toUpperCase() + by.slice(1) %></th>
+    </tr></thead>
+    <tbody>
+    <% rows.forEach(r => { %>
+    <tr class="<%= r.isMe ? 'row-me' : '' %>">
+      <td>
+        <% if (r.rank === 1) { %><span class="rank-num rank-gold">🥇</span>
+        <% } else if (r.rank === 2) { %><span class="rank-num rank-silver">🥈</span>
+        <% } else if (r.rank === 3) { %><span class="rank-num rank-bronze">🥉</span>
+        <% } else { %><span class="rank-num" style="color:var(--text-2)">#<%= r.rank %></span>
+        <% } %>
+      </td>
+      <td>
+        <div class="player-cell">
+          <img src="<%= r.avatar %>" alt="">
+          <a href="/tracker/players/<%= r.discordId %>"><%= r.username %></a>
+          <% if (r.isMe) { %><span style="color:var(--text-2);font-size:0.75rem">(you)</span><% } %>
+        </div>
+      </td>
+      <td style="text-align:right;font-weight:600;color:var(--accent)"><%= r.metric %></td>
+    </tr>
+    <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+</main></body></html>
