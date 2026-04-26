@@ -5,7 +5,7 @@ import { AgentClient } from './client';
 import { createTray } from './tray';
 import open from 'open';
 
-const BASE_URL = process.env['SC_TRACKER_SERVER'] ?? 'https://8462a793-27e3-4e05-b92f-db825aeda21e-00-1ynqb3mqkpbyf.spock.replit.dev';
+const BASE_URL = process.env['SC_TRACKER_SERVER'] ?? 'https://sc-tracker.replit.app';
 const WS_URL = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://') + '/ws/agent';
 const DASHBOARD_URL = BASE_URL + '/tracker';
 const LOCAL_PORT = 9242;
