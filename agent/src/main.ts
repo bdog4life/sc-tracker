@@ -5,8 +5,9 @@ import { AgentClient } from './client';
 import { createTray } from './tray';
 import open from 'open';
 
-const SERVER_URL = process.env['SC_TRACKER_SERVER'] ?? 'wss://your-site.replit.app';
-const DASHBOARD_URL = SERVER_URL.replace('wss://', 'https://').replace('ws://', 'http://');
+const BASE_URL = process.env['SC_TRACKER_SERVER'] ?? 'https://8462a793-27e3-4e05-b92f-db825aeda21e-00-1ynqb3mqkpbyf.spock.replit.dev';
+const WS_URL = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://') + '/ws/agent';
+const DASHBOARD_URL = BASE_URL + '/tracker';
 const LOCAL_PORT = 9242;
 
 async function main(): Promise<void> {
@@ -30,7 +31,7 @@ async function main(): Promise<void> {
       process.stdin.once('data', (d) => resolve(d.toString().trim()));
     });
 
-    config = { token, logPath, serverUrl: SERVER_URL, localPort: LOCAL_PORT };
+    config = { token, logPath, serverUrl: WS_URL, localPort: LOCAL_PORT };
     writeConfig(config);
     console.log('[agent] Config saved.');
   }
