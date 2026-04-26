@@ -105,7 +105,7 @@ authRouter.get('/discord/callback', async (req: Request, res: Response) => {
      RETURNING id`,
     [user.id, user.username, user.avatar ?? null, agentToken]
   );
-  const userId: number = result.rows[0].id;
+  const userId: number = parseInt(result.rows[0].id as string, 10);
 
   if (isDashboard) {
     // Populate session and redirect to dashboard
@@ -147,7 +147,8 @@ authRouter.get('/verify', async (req: Request, res: Response) => {
 
 // Dashboard logout
 authRouter.post('/logout', (req: Request, res: Response) => {
-  req.session.destroy(() => {
+  req.session.destroy((err) => {
+    if (err) console.error('[auth] session destroy failed:', err);
     res.redirect('/auth/discord?dashboard=1');
   });
 });
